@@ -24,10 +24,6 @@ export default async function CobrosPage() {
               <h1 className="text-3xl font-bold text-slate-900">Cobros de Mercado Pago</h1>
               <p className="text-slate-600 mt-1">Gestiona tus transferencias y genera facturas para AFIP</p>
             </div>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="mr-2 h-4 w-4" />
-              Sincronizar MP
-            </Button>
           </div>
         </div>
       </div>
