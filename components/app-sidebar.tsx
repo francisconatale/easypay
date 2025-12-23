@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Cobros MP", href: "/cobros", icon: CreditCard },
+  { name: "Cobrar", href: "/cobrar", icon: CreditCard },
+  { name: "Cobros MP", href: "/cobros", icon: FileText }, // Changed icon to distinguish
   { name: "Ventas", href: "/ventas", icon: ShoppingCart },
   { name: "Clientes", href: "/clientes", icon: Users },
   { name: "Facturas", href: "/facturas", icon: FileText },
