@@ -32,14 +32,13 @@ export function AppSidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 bottom-0 w-64 bg-gradient-to-br from-blue-600 to-blue-700 text-white z-40 transition-transform duration-300 ease-in-out ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0`}
+        className={`fixed left-0 top-0 bottom-0 w-64 bg-gradient-to-br from-blue-600 to-blue-700 text-white z-40 transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "-translate-x-full"
+          } lg:translate-x-0`}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="p-6 border-b border-blue-500/30">
-            <h2 className="text-2xl font-bold">MP Panel</h2>
+            <h2 className="text-2xl font-bold">Easypay</h2>
             <p className="text-blue-100 text-sm mt-1">Gestión de cobros</p>
           </div>
 
@@ -53,9 +52,8 @@ export function AppSidebar() {
                   key={item.name}
                   href={item.href}
                   onClick={() => setIsOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                    isActive ? "bg-white text-blue-600 shadow-lg" : "text-blue-50 hover:bg-blue-500/30"
-                  }`}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive ? "bg-white text-blue-600 shadow-lg" : "text-blue-50 hover:bg-blue-500/30"
+                    }`}
                 >
                   <Icon className="h-5 w-5" />
                   <span className="font-medium">{item.name}</span>
@@ -66,7 +64,7 @@ export function AppSidebar() {
 
           {/* Footer */}
           <div className="p-4 border-t border-blue-500/30">
-            <p className="text-xs text-blue-200 text-center">Mercado Pago Panel v1.0</p>
+            <p className="text-xs text-blue-200 text-center">Easypay v1.0</p>
           </div>
         </div>
       </aside>
