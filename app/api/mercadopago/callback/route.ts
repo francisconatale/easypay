@@ -9,6 +9,9 @@ export async function GET(request: Request) {
     const error = requestUrl.searchParams.get("error")
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || requestUrl.origin
+    console.log("Callback Base URL:", baseUrl)
+    console.log("Request Origin:", requestUrl.origin)
+    console.log("NEXT_PUBLIC_APP_URL:", process.env.NEXT_PUBLIC_APP_URL)
 
     if (error) {
         return NextResponse.redirect(`${baseUrl}/dashboard?error=${error}`)
