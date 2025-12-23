@@ -14,12 +14,8 @@ export async function getMercadoPagoAuthUrl() {
         throw new Error("Usuario no autenticado")
     }
 
-    // Generar un state aleatorio
     const state = randomBytes(32).toString("hex")
-
-    // Guardar el state en la base de datos con expiración (ej. 10 minutos)
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
-
     const { error } = await supabase.from("oauth_states").insert({
         state,
         user_id: user.id,
@@ -31,7 +27,6 @@ export async function getMercadoPagoAuthUrl() {
         throw new Error("Error al iniciar la conexión con Mercado Pago")
     }
 
-    // Construir la URL
     const params = new URLSearchParams({
         client_id: process.env.MP_CLIENT_ID!,
         response_type: "code",
@@ -40,5 +35,9 @@ export async function getMercadoPagoAuthUrl() {
         state: state,
     })
 
-    return `https://auth.mercadopago.com.ar/authorization?${params.toString()}`
+    const authUrl = `https://auth.mercadopago.com.ar/authorization?${params.toString()}`
+    console.log("Generated MP Auth URL:", authUrl)
+    console.log("Using Redirect URI:", process.env.MP_REDIRECT_URI)
+
+    return authUrl
 }
