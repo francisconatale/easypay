@@ -2,14 +2,15 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, CreditCard, ShoppingCart, FileText, Menu, X, Users } from "lucide-react"
+import { LayoutDashboard, CreditCard, ShoppingCart, FileText, Menu, X, Users, Store } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Cobrar", href: "/cobrar", icon: CreditCard },
-  { name: "Cobros MP", href: "/cobros", icon: FileText }, // Changed icon to distinguish
+  { name: "Mis Negocios", href: "/negocios", icon: Store },
+  { name: "Cobros MP", href: "/cobros", icon: FileText },
   { name: "Ventas", href: "/ventas", icon: ShoppingCart },
   { name: "Clientes", href: "/clientes", icon: Users },
   { name: "Facturas", href: "/facturas", icon: FileText },
