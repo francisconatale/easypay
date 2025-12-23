@@ -8,18 +8,19 @@ export async function GET(request: Request) {
     const state = requestUrl.searchParams.get("state")
     const error = requestUrl.searchParams.get("error")
 
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || requestUrl.origin
+
     if (error) {
-        return NextResponse.redirect(`${requestUrl.origin}/dashboard?error=${error}`)
+        return NextResponse.redirect(`${baseUrl}/dashboard?error=${error}`)
     }
 
     if (!code || !state) {
-        return NextResponse.redirect(`${requestUrl.origin}/dashboard?error=missing_params`)
+        return NextResponse.redirect(`${baseUrl}/dashboard?error=missing_params`)
     }
 
     try {
         const supabase = await createServerClient()
 
-        // Verificar state y obtener usuario
         const { data: stateData, error: stateError } = await supabase
             .from("oauth_states")
             .select("user_id")
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
 
         if (stateError || !stateData) {
             console.error("Invalid or expired state:", stateError)
-            return NextResponse.redirect(`${requestUrl.origin}/dashboard?error=invalid_state`)
+            return NextResponse.redirect(`${baseUrl}/dashboard?error=invalid_state`)
         }
 
         const userId = stateData.user_id
@@ -45,7 +46,7 @@ export async function GET(request: Request) {
             user_id: userId,
             mp_user_id: tokenData.user_id,
             access_token: tokenData.access_token,
-            refresh_token: tokenData.refresh_token,
+            refresh_token: tokenData.refresh_token || "no_refresh_token", // Fallback to avoid DB error if column is NOT NULL
             public_key: tokenData.public_key,
             expires_at: expiresAt,
             updated_at: new Date().toISOString(),
@@ -53,15 +54,15 @@ export async function GET(request: Request) {
 
         if (dbError) {
             console.error("Error saving credentials:", dbError)
-            return NextResponse.redirect(`${requestUrl.origin}/dashboard?error=db_error`)
+            return NextResponse.redirect(`${baseUrl}/dashboard?error=db_error`)
         }
 
         // Eliminar el state usado
         await supabase.from("oauth_states").delete().eq("state", state)
 
-        return NextResponse.redirect(`${requestUrl.origin}/dashboard?success=mp_connected`)
+        return NextResponse.redirect(`${baseUrl}/dashboard?success=mp_connected`)
     } catch (error) {
         console.error("Error in MP callback:", error)
-        return NextResponse.redirect(`${requestUrl.origin}/dashboard?error=exchange_failed`)
+        return NextResponse.redirect(`${baseUrl}/dashboard?error=exchange_failed`)
     }
 }
