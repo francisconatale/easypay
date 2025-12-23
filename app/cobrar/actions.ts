@@ -1,6 +1,8 @@
 "use server"
 
 import { createServerClient } from "@/lib/supabase/server"
+import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 
 // --- Helper para obtener credenciales ---
 async function getMPCredentials() {
@@ -20,16 +22,13 @@ async function getMPCredentials() {
     return credentials
 }
 
-// --- Helpers para IDs Externos ---
 function getStoreExternalId(userId: number | string): string {
     const cleanUserId = userId.toString().replace(/[^a-zA-Z0-9]/g, "")
-    // Estructura estricta v2
     return `easypayStore${cleanUserId}v2`
 }
 
 function getPosExternalId(userId: number | string, suffix: string = ""): string {
     const cleanUserId = userId.toString().replace(/[^a-zA-Z0-9]/g, "")
-    // Si no hay sufijo, es el POS principal v2
     if (!suffix) {
         return `easypayPOS${cleanUserId}v2`
     }
@@ -37,61 +36,7 @@ function getPosExternalId(userId: number | string, suffix: string = ""): string 
     return `easypayPOS${cleanUserId}ADD${suffix}`
 }
 
-export async function createPaymentPreference(formData: FormData) {
-    const title = formData.get("title") as string
-    const price = Number(formData.get("price"))
-
-    if (!title || !price) {
-        return { error: "Por favor completa todos los campos" }
-    }
-
-    const credentials = await getMPCredentials()
-    if (!credentials?.access_token) {
-        return { error: "No tienes vinculada tu cuenta de Mercado Pago" }
-    }
-
-    try {
-        const response = await fetch("https://api.mercadopago.com/checkout/preferences", {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${credentials.access_token}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                items: [
-                    {
-                        title: title,
-                        quantity: 1,
-                        unit_price: price,
-                        currency_id: "ARS",
-                    },
-                ],
-                back_urls: {
-                    success: "https://easypay.com/cobros",
-                    failure: "https://easypay.com/cobros",
-                    pending: "https://easypay.com/cobros",
-                },
-                auto_return: "approved",
-            }),
-        })
-
-        const data = await response.json()
-
-        if (!response.ok) {
-            console.error("MP Error:", data)
-            return { error: "Error al crear la preferencia en Mercado Pago" }
-        }
-
-        return {
-            success: true,
-            init_point: data.init_point,
-            sandbox_init_point: data.sandbox_init_point,
-        }
-    } catch (error) {
-        console.error("Server Action Error:", error)
-        return { error: "Error interno del servidor" }
-    }
-}
+// createPaymentPreference removed
 
 export async function getTerminalData() {
     const credentials = await getMPCredentials()
@@ -108,6 +53,8 @@ export async function getTerminalData() {
     try {
         // 1. Buscar Sucursal (Store)
         let storeId = null
+        let storeName = null
+        let storeLocation = null
         const storesRes = await fetch(
             `https://api.mercadopago.com/users/${userId}/stores/search?external_id=${storeExternalId}`,
             {
@@ -116,8 +63,18 @@ export async function getTerminalData() {
         )
         const storesData = await storesRes.json()
 
+        if (!storesRes.ok) {
+            console.error("Error searching stores:", storesData)
+            if (storesRes.status === 403 || storesRes.status === 401) {
+                return { error: "Tu sesión de Mercado Pago expiró. Por favor, vuelve a vincular tu cuenta.", needs_reauth: true }
+            }
+            return { error: "Error al verificar sucursal en Mercado Pago" }
+        }
+
         if (storesData.results && storesData.results.length > 0) {
             storeId = storesData.results[0].id
+            storeName = storesData.results[0].name
+            storeLocation = storesData.results[0].location
         } else {
             return { needs_setup: true }
         }
@@ -132,10 +89,14 @@ export async function getTerminalData() {
         )
         const posResult = await posRes.json()
 
+        if (!posRes.ok) {
+            console.error("Error searching POS:", posResult)
+            return { error: "Error al verificar caja en Mercado Pago" }
+        }
+
         if (posResult.results && posResult.results.length > 0) {
             posData = posResult.results[0]
         } else {
-            // Crear POS si no existe
             const createPosRes = await fetch("https://api.mercadopago.com/pos", {
                 method: "POST",
                 headers: {
@@ -160,11 +121,68 @@ export async function getTerminalData() {
             success: true,
             qr_image: posData.qr?.image,
             external_pos_id: posData.external_id,
+            store_name: storeName,
+            store_location: storeLocation,
+            store_id: storeId,
         }
     } catch (error) {
         console.error("Get Terminal Data Error:", error)
         return { error: "Error al obtener datos de la terminal" }
     }
+}
+
+export async function deleteStore(storeId: string) {
+    const credentials = await getMPCredentials()
+    if (!credentials?.access_token || !credentials?.mp_user_id) {
+        return { error: "No autenticado" }
+    }
+
+    try {
+        const response = await fetch(
+            `https://api.mercadopago.com/users/${credentials.mp_user_id}/stores/${storeId}`,
+            {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${credentials.access_token}` },
+            }
+        )
+
+        if (!response.ok) {
+            const errData = await response.json()
+            console.error("Error deleting store:", errData)
+            return { error: "Error al eliminar la sucursal" }
+        }
+
+        return { success: true }
+    } catch (error) {
+        console.error("Delete Store Error:", error)
+        return { error: "Error interno al eliminar la sucursal" }
+    }
+}
+
+
+
+export async function disconnectMercadoPago(_formData?: FormData) {
+    const supabase = await createServerClient()
+    const {
+        data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) throw new Error("No autenticado")
+
+    const { error } = await supabase
+        .from("mp_credentials")
+        .delete()
+        .eq("user_id", user.id)
+
+    if (error) {
+        console.error("Error disconnecting MP:", error)
+        throw new Error("Error al desconectar Mercado Pago")
+    }
+
+    // Limpiar también estados pendientes
+    await supabase.from("oauth_states").delete().eq("user_id", user.id)
+
+    redirect("/dashboard?success=mp_disconnected")
 }
 
 export async function createStoreAndPos(formData: FormData) {
@@ -180,7 +198,7 @@ export async function createStoreAndPos(formData: FormData) {
 
     const credentials = await getMPCredentials()
     if (!credentials?.access_token || !credentials?.mp_user_id) {
-        return { error: "Error de autenticación" }
+        throw new Error("Error de autenticación")
     }
 
     const accessToken = credentials.access_token
@@ -247,63 +265,85 @@ export async function createStoreAndPos(formData: FormData) {
         return { error: "Error interno al crear la sucursal" }
     }
 }
-
 export async function createInstoreOrder(formData: FormData) {
     const amount = Number(formData.get("amount"))
     const description = formData.get("description") as string
-    const externalPosId = formData.get("external_pos_id") as string
 
-    if (!amount || !externalPosId) {
-        return { error: "Faltan datos para crear la orden" }
+    if (!amount) {
+        return { error: "Monto inválido" }
     }
 
     const credentials = await getMPCredentials()
     if (!credentials?.access_token || !credentials?.mp_user_id) {
-        return { error: "Error de autenticación" }
+        throw new Error("Error de autenticación")
+    }
+
+    const terminalData = await getTerminalData()
+
+    if (terminalData.needs_setup) {
+        return { error: "Configuración requerida", needsSetup: true }
+    }
+
+    if (terminalData.error || !terminalData.external_pos_id) {
+        return { error: "No se pudo obtener la información de la caja (POS). Configura tu sucursal primero." }
+    }
+
+    const userId = credentials.mp_user_id
+    const externalPosId = terminalData.external_pos_id
+    const externalReference = `order_${Date.now()}`
+
+    const payload = {
+        external_reference: externalReference,
+        title: description || "Cobro con QR",
+        description: description || `Cobro en caja ${externalPosId}`,
+        notification_url: "https://tu-backend.com/ipn", // TODO: Configurar URL real
+        total_amount: amount,
+        items: [
+            {
+                sku_number: "A123",
+                category: "marketplace",
+                title: description || "Item",
+                description: description || "Item de venta",
+                unit_price: amount,
+                quantity: 1,
+                unit_measure: "unit",
+                total_amount: amount
+            }
+        ],
+        cash_out: {
+            amount: 0
+        }
     }
 
     try {
-        const url = `https://api.mercadopago.com/instore/orders/qr/seller/collectors/${credentials.mp_user_id}/pos/${externalPosId}/qrs`
-
-        const payload = {
-            external_reference: `order_${Date.now()}`,
-            title: description || "Cobro Easypay",
-            description: description || "Cobro desde Easypay",
-            total_amount: amount,
-            items: [
-                {
-                    external_code: "ITEM",
-                    category: "marketplace",
-                    title: description || "Item",
-                    description: description || "Item description",
-                    unit_price: amount,
-                    quantity: 1,
-                    unit_measure: "unit",
-                    total_amount: amount,
-                    currency_id: "ARS",
-                },
-            ],
-        }
-
+        const url = `https://api.mercadopago.com/instore/orders/qr/seller/collectors/${userId}/pos/${externalPosId}/qrs`
 
         const response = await fetch(url, {
-            method: "POST",
+            method: "PUT",
             headers: {
-                Authorization: `Bearer ${credentials.access_token}`,
-                "Content-Type": "application/json",
+                "Authorization": `Bearer ${credentials.access_token}`,
+                "Content-Type": "application/json"
             },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(payload)
         })
 
         if (!response.ok) {
             const errData = await response.json()
-            console.error("Error creating order:", JSON.stringify(errData, null, 2))
-            return { error: `Error MP: ${errData.message} (${errData.status}) - ${JSON.stringify(errData.causes || [])}` }
+            console.error("Error creating Instore Order:", JSON.stringify(errData, null, 2))
+            return { error: "Error al crear la orden presencial. Verifica que la caja exista." }
         }
 
-        return { success: true }
+        const data = await response.json()
+        console.log("Instore Order Created:", data)
+        return {
+            success: true,
+            qrData: data.qr_data,
+            orderId: data.in_store_order_id,
+            externalReference
+        }
+
     } catch (error) {
-        console.error("Create Order Error:", error)
+        console.error("Create Instore Order Error:", error)
         return { error: "Error interno al crear la orden" }
     }
 }
