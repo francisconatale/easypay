@@ -59,3 +59,17 @@ export async function refreshMPOAuthToken(refreshToken: string): Promise<MPOAuth
 
     return response.json()
 }
+
+export async function getMPUser(accessToken: string) {
+    const response = await fetch("https://api.mercadopago.com/users/me", {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+        },
+    })
+
+    if (!response.ok) {
+        throw new Error("Error al obtener datos del usuario de Mercado Pago")
+    }
+
+    return response.json()
+}
