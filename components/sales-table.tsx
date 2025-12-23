@@ -1,12 +1,25 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Search, Trash2 } from "lucide-react"
 import { Card } from "@/components/ui/card"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { useToast } from "@/components/ui/use-toast"
+import { deleteSale } from "@/app/ventas/actions"
 
 interface Sale {
   id: string
@@ -28,6 +41,8 @@ interface SalesTableProps {
 
 export function SalesTable({ sales }: SalesTableProps) {
   const [searchTerm, setSearchTerm] = useState("")
+  const [isPending, startTransition] = useTransition()
+  const { toast } = useToast()
 
   const filteredSales = sales.filter(
     (sale) =>
@@ -35,6 +50,24 @@ export function SalesTable({ sales }: SalesTableProps) {
       sale.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sale.category?.toLowerCase().includes(searchTerm.toLowerCase()),
   )
+
+  const handleDelete = async (id: string) => {
+    startTransition(async () => {
+      try {
+        await deleteSale(id)
+        toast({
+          title: "Venta eliminada",
+          description: "La venta ha sido eliminada correctamente.",
+        })
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "No se pudo eliminar la venta.",
+          variant: "destructive",
+        })
+      }
+    })
+  }
 
   return (
     <Card>
@@ -95,9 +128,30 @@ export function SalesTable({ sales }: SalesTableProps) {
                 </TableCell>
                 <TableCell>{new Date(sale.sale_date).toLocaleDateString("es-AR")}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="sm">
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="sm" disabled={isPending}>
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta acción no se puede deshacer. Esto eliminará permanentemente la venta de la base de datos.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDelete(sale.id)}
+                          className="bg-red-500 hover:bg-red-600"
+                        >
+                          Eliminar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </TableCell>
               </TableRow>
             ))}
