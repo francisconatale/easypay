@@ -464,7 +464,6 @@ export async function createInstoreOrder(formData: FormData) {
             return { error: "Error al crear la orden presencial. Verifica que la caja exista." }
         }
 
-        // Fallback for unexpected success status
         const data = await response.json()
         console.log("Instore Order Created (Unexpected Content):", data)
         return {
@@ -624,5 +623,33 @@ export async function createAdditionalPos(name: string) {
     } catch (error) {
         console.error("Create Additional POS Error:", error)
         return { error: "Error interno al crear caja" }
+    }
+}
+
+export async function deletePos(posId: number | string) {
+    const credentials = await getMPCredentials()
+    if (!credentials?.access_token || !credentials?.mp_user_id) {
+        return { error: "No autenticado" }
+    }
+
+    try {
+        const response = await fetch(
+            `https://api.mercadopago.com/pos/${posId}`,
+            {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${credentials.access_token}` },
+            }
+        )
+
+        if (!response.ok) {
+            const errData = await response.json()
+            console.error("Error deleting POS:", errData)
+            return { error: "Error al eliminar la caja" }
+        }
+
+        return { success: true }
+    } catch (error) {
+        console.error("Delete POS Error:", error)
+        return { error: "Error interno al eliminar la caja" }
     }
 }
