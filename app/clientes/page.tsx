@@ -22,23 +22,9 @@ export default async function ClientesPage() {
             </div>
             <AddClientDialog />
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-              <p className="text-sm text-blue-700 font-medium mb-1">Total Clientes</p>
-              <p className="text-2xl font-bold text-blue-900">{clients?.length || 0}</p>
-            </div>
-            <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-              <p className="text-sm text-green-700 font-medium mb-1">Con Email</p>
-              <p className="text-2xl font-bold text-green-900">{clients?.filter((c) => c.email).length || 0}</p>
-            </div>
-            <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-              <p className="text-sm text-purple-700 font-medium mb-1">Con CUIT</p>
-              <p className="text-2xl font-bold text-purple-900">{clients?.filter((c) => c.cuit).length || 0}</p>
-            </div>
-          </div>
         </div>
       </div>
+
 
       <div className="container mx-auto px-6 py-8">
         <ClientsTable clients={clients || []} />
